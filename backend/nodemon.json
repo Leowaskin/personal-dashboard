@@ -1,0 +1,11 @@
+{
+  "watch": ["index.js", "aiService.js"],
+  "ext": "js,mjs,cjs,json",
+  "ignore": [
+    ".wwebjs_auth/**",
+    ".wwebjs_cache/**",
+    "tasks.json",
+    "token.json",
+    "node_modules/**"
+  ]
+}

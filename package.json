@@ -1,0 +1,14 @@
+{
+  "name": "personal-dashboard",
+  "version": "1.0.0",
+  "description": "Personal Dashboard Launcher",
+  "scripts": {
+    "start": "concurrently \"npm run start-backend\" \"npm run start-frontend\"",
+    "start-backend": "cd backend && npx nodemon index.js",
+    "start-frontend": "cd frontend && npm run dev",
+    "install-all": "npm install && cd backend && npm install && cd ../frontend && npm install"
+  },
+  "dependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
