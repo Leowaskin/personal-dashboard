@@ -4,9 +4,12 @@
   "description": "Personal Dashboard Launcher",
   "scripts": {
     "start": "concurrently \"npm run start-backend\" \"npm run start-frontend\"",
-    "start-backend": "cd backend && npx nodemon index.js",
+    "start:prod": "npm run build && npm run start --prefix backend",
+    "start-backend": "cd backend && npm run dev",
     "start-frontend": "cd frontend && npm run dev",
-    "install-all": "npm install && cd backend && npm install && cd ../frontend && npm install"
+    "install-all": "npm install && cd backend && npm install && cd ../frontend && npm install",
+    "build": "npm run build --prefix backend && npm run build --prefix frontend",
+    "test": "npm test --prefix backend && npm run lint --prefix frontend"
   },
   "dependencies": {
     "concurrently": "^8.2.2"

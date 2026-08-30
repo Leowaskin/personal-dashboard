@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>Label</key><string>com.personal-dashboard.agent</string>
+  <key>ProgramArguments</key><array><string>__NPM_PATH__</string><string>run</string><string>start:prod</string></array>
+  <key>WorkingDirectory</key><string>__PROJECT_PATH__</string>
+  <key>RunAtLoad</key><true/><key>KeepAlive</key><true/>
+  <key>StandardOutPath</key><string>__PROJECT_PATH__/backend/data/agent.log</string>
+  <key>StandardErrorPath</key><string>__PROJECT_PATH__/backend/data/agent-error.log</string>
+</dict></plist>

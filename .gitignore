@@ -2,7 +2,13 @@ node_modules
 .DS_Store
 
 # Local credentials and browser/WhatsApp authentication state
-backend/.env
+.env
+.env.*
+!.env.example
 backend/token.json
 backend/.test_auth/
 backend/.wwebjs_auth/
+backend/.wwebjs_cache/
+backend/data/
+backend/dist/
+frontend/dist/
