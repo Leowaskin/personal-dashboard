@@ -14,10 +14,28 @@ import { runAgent } from './agent.js';
 import { generateBriefing } from './briefing.js';
 import { whatsappState } from './whatsapp.js';
 import { searchIntegrationStatus } from './web-search.js';
+import { speechInfo, speechSetup, speechSupported, synthesizeSpeech } from './speech.js';
 
 export const app = express();
 app.use(cors({ origin: config.FRONTEND_URL, credentials: true }));
 app.use(express.json());
+
+app.get('/api/v1/speech', async (_req, res) => res.json(await speechInfo()));
+app.post('/api/v1/speech', async (req, res) => {
+  if (!speechSupported()) return res.status(501).json({ message: 'Voice requires macOS on Apple Silicon.' });
+  const { input, voice } = z.object({ input: z.string().trim().min(1).max(4096), voice: z.string().trim().min(1).max(100).default('default') }).parse(req.body);
+  const controller = new AbortController();
+  const cancel = () => { if (!res.writableEnded) controller.abort(); };
+  res.on('close', cancel);
+  try {
+    const audio = await synthesizeSpeech(input, voice, controller.signal);
+    if (!controller.signal.aborted) res.set({ 'Content-Type': 'audio/wav', 'Cache-Control': 'no-store' }).send(audio);
+  } catch {
+    if (!controller.signal.aborted) res.status(503).json({ message: `${speechSetup}. If a voice fails, select Default or refresh the voice list.` });
+  } finally {
+    res.off('close', cancel);
+  }
+});
 
 app.get('/api/v1/health', (_req, res) => res.json({
   status: 'ok', database: 'connected', google: googleIntegration.authenticated() ? 'connected' : 'disconnected', whatsapp: whatsappState().status, search: searchIntegrationStatus(),

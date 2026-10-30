@@ -1,5 +1,34 @@
 # 🌟 Personal Dashboard & AI WhatsApp Assistant
 
+## Optional local voice output (macOS)
+
+The dashboard Assistant can read its text replies aloud using Phonon. Voice starts
+OFF on every page load. It requires an Apple Silicon Mac and Ollama 0.40.11 or
+later; Windows/Linux voice output is not supported by this integration.
+
+Upgrade Ollama from https://ollama.com/download, start it, and run:
+
+```bash
+ollama pull phonon
+ollama run phonon "Hello from Ollama."
+ollama show phonon
+ollama run phonon --voice Hugh "Hello from Ollama."
+```
+
+Use a voice listed by `ollama show phonon` if Hugh is unavailable in your model.
+In Assistant, click **Refresh voices**, choose a voice (initially **Default**),
+and enable **Read replies aloud**. **Play** replays the last reply; **Stop**
+cancels generation and playback. Disabling voice, changing the selected voice,
+or sending a new message also stops the current audio. Long replies are split at
+paragraph/sentence boundaries and played in order. Browsers may require clicking
+Play before allowing audio. Text replies remain visible even when voice fails.
+
+The app sends only the reply text and selected voice to local Ollama at
+`127.0.0.1:11434/v1/audio/speech`; this is independent of `OLLAMA_URL` and never
+uses cloud TTS or API keys. The returned WAV audio plays in the dashboard browser.
+No Gmail/Calendar records are sent separately. WhatsApp continues to send text.
+Setup/API reference: https://github.com/ollama/ollama/blob/main/docs/capabilities/speech.mdx
+
 A comprehensive, self-hosted personal productivity dashboard and automated AI assistant built with **React (Vite)**, **Node.js (Express)**, **Local LLM (Ollama / Llama 3)**, **Google Workspace APIs (Calendar & Gmail)**, and **WhatsApp Web (`whatsapp-web.js`)**.
 
 ---
