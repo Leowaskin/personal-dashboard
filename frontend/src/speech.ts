@@ -33,7 +33,10 @@ export function useSpeech() {
     try {
       const response = await fetch('/api/v1/speech');
       if (!response.ok) throw new Error();
-      setInfo(await response.json());
+      const next = await response.json();
+      setInfo(next);
+      if (!next.voices.includes(voiceRef.current)) { voiceRef.current = 'default'; setVoice('default'); }
+      setError('');
     } catch { setError('Could not check local voice support. Start Ollama and run: ollama pull phonon'); }
   };
   useEffect(() => { void refresh(); return () => { controller.current?.abort(); audio.current?.pause(); }; }, []);

@@ -10,7 +10,7 @@ const logger = pino();
 const imported = importLegacyTasks();
 if (imported.imported) logger.info(imported, 'Imported legacy tasks as onboarding drafts');
 
-const server = app.listen(config.PORT, () => logger.info({ port: config.PORT }, 'Personal agent API ready'));
+const server = app.listen(config.PORT, '127.0.0.1', () => logger.info({ port: config.PORT }, 'Personal agent API ready'));
 const scheduler = startScheduler();
 startWhatsApp();
 

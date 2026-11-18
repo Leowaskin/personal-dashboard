@@ -1,5 +1,15 @@
 # 🌟 Personal Dashboard & AI WhatsApp Assistant
 
+## Local AI review workflow
+
+Open **Privacy** first: Google, WhatsApp, search and news are disabled until individually enabled, even if old credentials exist. Set `OLLAMA_URL=http://127.0.0.1:11434`; remote model endpoints and the older `localhost` spelling are rejected. Local inference has no cloud fallback. See [PRIVACY.md](PRIVACY.md) for the actual data boundary, retention and exceptions; live integrations mean this is not an entirely offline application.
+
+Use **Inbox & review** to analyze up to 25 unread Gmail messages locally, or describe work in natural language. Edit task proposals, select a date within the next 30 days, preview the deterministic plan, then confirm. Calendar writes occur only when the preview's Google sync checkbox is selected and confirmed. Automatic planning settings now affect local plans only. Repeated confirmations and stale calendar/task state are rejected. Email itself is never modified.
+
+The new API surfaces are `GET/PUT /api/v1/privacy`, `DELETE /api/v1/privacy/history`, `GET/POST /api/v1/triage`, and `POST /api/v1/reviews/interpret`, `/preview`, `/apply`. Interpretation accepts `{text}`; preview accepts `{proposals: [{sourceId, task}], sync: false, date?: "YYYY-MM-DD"}` and returns a five-minute preview ID with proposed blocks and unscheduled work. Apply accepts `{id}`. Stale/duplicate previews return HTTP 409; invalid inputs return 400; unavailable integrations/models return 503 or per-message triage errors. Applying a local plan is atomic; Google sync failures retain saved tasks and require a fresh preview to retry.
+
+Phonon reply playback is optional and off on page load. Model unavailability leaves text usable. [Benchmark instructions](backend/benchmarks/README.md) describe the synthetic local/cloud evaluation and $5 estimated cloud ceiling. Measured artifacts and a report live under `backend/benchmarks/results/` after running it.
+
 ## Optional local voice output (macOS)
 
 The dashboard Assistant can read its text replies aloud using Phonon. Voice starts

@@ -1,4 +1,5 @@
 import qrcode from 'qrcode-terminal';
+import { allowed } from './privacy.js';
 import whatsappWeb from 'whatsapp-web.js';
 import type { Client as WhatsAppClient, Message } from 'whatsapp-web.js';
 import { config } from './config.js';
@@ -7,7 +8,7 @@ import { runAgent } from './agent.js';
 const { Client, LocalAuth } = whatsappWeb;
 
 let client: WhatsAppClient | null = null;
-let status = config.ENABLE_WHATSAPP === 'true' ? 'INITIALIZING' : 'DISABLED';
+let status = 'DISABLED';
 let latestQr: string | null = null;
 const sentTexts = new Set<string>();
 let lastInbound: { at: string; outcome: string; remote: string; to: string; fromMe: boolean } | null = null;
@@ -16,7 +17,7 @@ const ownChatIds = new Set<string>();
 export function whatsappState() { return { status, qr: latestQr, lastInbound }; }
 
 export async function sendWhatsApp(text: string, targetChat?: string) {
-  if (!client || status !== 'READY' || (!targetChat && !config.YOUR_WHATSAPP_NUMBER)) return false;
+  if (!allowed('whatsapp') || !client || status !== 'READY' || (!targetChat && !config.YOUR_WHATSAPP_NUMBER)) return false;
   const chatId = targetChat ?? (config.YOUR_WHATSAPP_NUMBER!.includes('@c.us') ? config.YOUR_WHATSAPP_NUMBER! : `${config.YOUR_WHATSAPP_NUMBER!.replace('+', '')}@c.us`);
   sentTexts.add(text.trim());
   setTimeout(() => sentTexts.delete(text.trim()), 60_000);
@@ -33,7 +34,8 @@ function normalizedWid(value?: string) {
 }
 
 export function startWhatsApp() {
-  if (config.ENABLE_WHATSAPP !== 'true') return;
+  if (!allowed('whatsapp') || client) return;
+  status = 'INITIALIZING';
   client = new Client({
     authStrategy: new LocalAuth(),
     puppeteer: {
@@ -63,13 +65,14 @@ export function startWhatsApp() {
         if (identity.pn) ownChatIds.add(normalizedWid(identity.pn));
       }
     } catch (error) {
-      console.warn('[WhatsApp] Could not resolve own LID; direct self-chat IDs still work', error);
+      console.warn('[WhatsApp] Could not resolve own LID; direct self-chat IDs still work');
     }
     console.log(`[WhatsApp] Ready (self IDs: ${ownChatIds.size})`);
   });
   client.on('auth_failure', () => { status = 'AUTH_FAILURE'; console.error('[WhatsApp] Authentication failed'); });
   client.on('disconnected', (reason: string) => { status = 'DISCONNECTED'; console.warn(`[WhatsApp] Disconnected: ${reason}`); });
   client.on('message_create', async (message: Message) => {
+    if (!allowed('whatsapp')) return;
     const remote = message.id?.remote ?? message.to ?? '';
     const myUser = client?.info?.wid?.user;
     // WhatsApp represents “Message yourself” differently across clients. Compare the
@@ -94,11 +97,10 @@ export function startWhatsApp() {
         try {
           const { replanAfterTaskChange } = await import('./orchestrator.js');
           const plan = await replanAfterTaskChange(`whatsapp-${result.action.toLowerCase()}`);
-          if (plan) reply += '\n\nI’ve updated your Google Calendar.';
+          if (plan) reply += '\n\nUpdated your local plan. Review calendar sync in the dashboard.';
         } catch (error) {
-          console.error('[Calendar] WhatsApp task was saved but could not be synced', error);
-          const detail = error instanceof Error ? error.message : 'unknown error';
-          reply += `\n\nYour task was saved, but Google Calendar could not be updated: ${detail}`;
+          console.error('[Calendar] Local replanning failed');
+          reply += '\n\nYour task was saved, but local replanning failed. Check the dashboard.';
         }
       }
       await sendWhatsApp(reply, remote || message.to);
@@ -113,4 +115,7 @@ export function startWhatsApp() {
 
 export async function stopWhatsApp() {
   if (client) await client.destroy().catch(() => undefined);
+  client = null;
+  status = 'DISABLED';
+  latestQr = null;
 }

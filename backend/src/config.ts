@@ -11,12 +11,12 @@ const envSchema = z.object({
   GOOGLE_CLIENT_SECRET: z.string().optional(),
   GOOGLE_REDIRECT_URI: z.string().url().default('http://localhost:5001/auth/google/callback'),
   YOUR_WHATSAPP_NUMBER: z.string().optional(),
-  OLLAMA_URL: z.string().url().default('http://localhost:11434'),
+  OLLAMA_URL: z.string().url().default('http://127.0.0.1:11434'),
   OLLAMA_MODEL: z.string().default('llama3'),
   FIRECRAWL_API_KEY: z.string().min(1).optional(),
   BRAVE_SEARCH_API_KEY: z.string().min(1).optional(),
   DATABASE_PATH: z.string().default(path.join(backendDir, 'data', 'dashboard.sqlite')),
-  ENABLE_WHATSAPP: z.enum(['true', 'false']).default('true'),
+  ENABLE_WHATSAPP: z.enum(['true', 'false']).default('false'),
 });
 
 export const config = envSchema.parse(process.env);

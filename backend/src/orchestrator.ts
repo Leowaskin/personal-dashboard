@@ -13,7 +13,7 @@ export async function replanToday(reason: string) {
   const end = now.endOf('day').toISO()!;
   const busy = await googleIntegration.fixedEvents(start, end);
   const plan = persistPlan(now.toISODate()!, busy, reason);
-  if (prefs.autoPlanEnabled && googleIntegration.authenticated()) await googleIntegration.syncBlocks(plan.blocks, now.toISODate()!);
+  // Calendar writes are performed only by the confirmed preview workflow.
   return plan;
 }
 

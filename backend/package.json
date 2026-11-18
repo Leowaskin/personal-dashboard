@@ -4,6 +4,8 @@
   "description": "",
   "main": "dist/index.js",
   "scripts": {
+    "benchmark": "tsx benchmarks/run.ts",
+    "benchmark:summary": "tsx benchmarks/summarize.ts",
     "dev": "tsx watch src/index.ts",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",

@@ -68,12 +68,12 @@ export const settingsRepository = {
 export const planRepository = {
   blocksForDay(start: string, end: string) {
     return db.select().from(scheduleBlocks)
-      .where(and(sql`${scheduleBlocks.start} < ${end}`, sql`${scheduleBlocks.end} > ${start}`))
-      .orderBy(asc(scheduleBlocks.start)).all();
+      .where(and(sql`julianday(${scheduleBlocks.start}) < julianday(${end})`, sql`julianday(${scheduleBlocks.end}) > julianday(${start})`))
+      .orderBy(sql`julianday(${scheduleBlocks.start})`).all();
   },
-  replaceFuture(blocks: Array<{ id: string; taskId: string; start: string; end: string }>, runId: string, freezeBefore: string) {
+  replaceFuture(blocks: Array<{ id: string; taskId: string; start: string; end: string }>, runId: string, freezeBefore: string, day?: { start: string; end: string }) {
     db.transaction((tx) => {
-      tx.delete(scheduleBlocks).where(and(sql`${scheduleBlocks.start} >= ${freezeBefore}`, eq(scheduleBlocks.state, 'PLANNED'))).run();
+      tx.delete(scheduleBlocks).where(and(sql`julianday(${scheduleBlocks.start}) >= julianday(${freezeBefore})`, eq(scheduleBlocks.state, 'PLANNED'), ...(day ? [sql`julianday(${scheduleBlocks.start}) >= julianday(${day.start})`, sql`julianday(${scheduleBlocks.start}) < julianday(${day.end})`] : []))).run();
       const now = new Date().toISOString();
       if (blocks.length) tx.insert(scheduleBlocks).values(blocks.map((b) => ({ ...b, planRunId: runId, createdAt: now, updatedAt: now }))).run();
     });

@@ -3,10 +3,12 @@ import { generateBriefing } from './briefing.js';
 import { replanToday } from './orchestrator.js';
 import { briefingRepository, settingsRepository } from './repository.js';
 import { sendWhatsApp } from './whatsapp.js';
+import { purgeReviews } from './review.js';
 
 let lastCalendarCheck = 0;
 
 export async function schedulerTick() {
+  purgeReviews();
   const prefs = settingsRepository.get();
   if (!prefs.onboardingComplete) return;
   const now = DateTime.now().setZone(prefs.timezone);

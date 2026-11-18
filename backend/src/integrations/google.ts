@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import { allowed } from '../privacy.js';
 import { google } from 'googleapis';
 import { config, paths } from '../config.js';
 import type { BusyInterval, PlannedBlock } from '../contracts.js';
@@ -21,8 +22,9 @@ oauth.on('tokens', (tokens) => {
 
 export const googleIntegration = {
   configured: () => Boolean(config.GOOGLE_CLIENT_ID && config.GOOGLE_CLIENT_SECRET),
-  authenticated: () => fs.existsSync(paths.token),
+  authenticated: () => allowed('google') && fs.existsSync(paths.token),
   authUrl(state?: string) {
+    if (!allowed('google')) throw new Error('Enable Google in Privacy before connecting');
     return oauth.generateAuthUrl({
       access_type: 'offline', prompt: 'consent', state,
       // A single Calendar scope covers reading fixed events and managing the dedicated agent calendar.
@@ -31,6 +33,7 @@ export const googleIntegration = {
     });
   },
   async exchange(code: string) {
+    if (!allowed('google')) throw new Error('Google integration is disabled');
     const { tokens } = await oauth.getToken(code);
     oauth.setCredentials(tokens);
     fs.writeFileSync(paths.token, JSON.stringify(tokens), { mode: 0o600 });
@@ -62,7 +65,28 @@ export const googleIntegration = {
       };
     }));
   },
+  async triageEmails() {
+    if (!this.authenticated()) throw new Error('Enable and connect Google before triage');
+    const gmail = google.gmail({ version: 'v1', auth: oauth });
+    const listed = await gmail.users.messages.list({ userId: 'me', q: 'in:inbox is:unread', maxResults: 25 });
+    const results = [];
+    for (const item of listed.data.messages ?? []) {
+      if (!this.authenticated()) throw new Error('Google integration was disabled');
+      const message = await gmail.users.messages.get({ userId: 'me', id: item.id!, format: 'full' });
+      const payload = message.data.payload;
+      const headers = payload?.headers ?? [];
+      const textParts: string[] = [];
+      const collect = (part: NonNullable<typeof payload>) => {
+        if (part.mimeType === 'text/plain' && !part.filename && part.body?.data) textParts.push(Buffer.from(part.body.data, 'base64url').toString('utf8'));
+        for (const child of part.parts ?? []) collect(child);
+      };
+      if (payload) collect(payload);
+      results.push({ id: item.id!, subject: (headers.find(h => h.name?.toLowerCase() === 'subject')?.value ?? '').slice(0, 500), from: (headers.find(h => h.name?.toLowerCase() === 'from')?.value ?? '').slice(0, 300), body: (textParts.join('\n') || message.data.snippet || '').slice(0, 12000) });
+    }
+    return results;
+  },
   async ensureAgentCalendar() {
+    if (!this.authenticated()) return null;
     const prefs = settingsRepository.get();
     if (prefs.agentCalendarId) return prefs.agentCalendarId;
     if (!this.authenticated()) return null;
@@ -72,7 +96,7 @@ export const googleIntegration = {
     settingsRepository.setCalendarId(id);
     return id;
   },
-  async syncBlocks(blocks: PlannedBlock[], date: string) {
+  async syncBlocks(blocks: PlannedBlock[], date: string, freezeBefore: string) {
     const calendarId = await this.ensureAgentCalendar();
     if (!calendarId) return { synced: 0 };
     const calendar = google.calendar({ version: 'v3', auth: oauth });
@@ -83,7 +107,8 @@ export const googleIntegration = {
     const desiredIds = new Set(blocks.map((block) => block.id));
     for (const event of existing.data.items ?? []) {
       const blockId = event.extendedProperties?.private?.personalAgentBlockId;
-      if (blockId && !desiredIds.has(blockId) && event.id) await calendar.events.delete({ calendarId, eventId: event.id });
+      const start = event.start?.dateTime ?? event.start?.date;
+      if (blockId && !desiredIds.has(blockId) && event.id && start && Date.parse(start) >= Date.parse(freezeBefore)) await calendar.events.delete({ calendarId, eventId: event.id });
     }
     for (const block of blocks) {
       const requestBody = {

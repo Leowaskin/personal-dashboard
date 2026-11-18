@@ -12,3 +12,6 @@ backend/.wwebjs_cache/
 backend/data/
 backend/dist/
 frontend/dist/
+backend/benchmarks/results/latest.json
+backend/benchmarks/results/availability.json
+backend/benchmarks/results/PROGRESS.md

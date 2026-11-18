@@ -15,10 +15,44 @@ import { generateBriefing } from './briefing.js';
 import { whatsappState } from './whatsapp.js';
 import { searchIntegrationStatus } from './web-search.js';
 import { speechInfo, speechSetup, speechSupported, synthesizeSpeech } from './speech.js';
+import { integrationNames, permissions, setPermission } from './privacy.js';
+import { startWhatsApp, stopWhatsApp } from './whatsapp.js';
+import { applyReview, listTriage, previewReview, previewSchema, purgeReviews, ReviewError, triageInbox } from './review.js';
+import { understand } from './understanding.js';
+import { sqlite } from './db/index.js';
+import { paths } from './config.js';
+import { localModelAvailable } from './local-model.js';
 
 export const app = express();
 app.use(cors({ origin: config.FRONTEND_URL, credentials: true }));
 app.use(express.json());
+app.use((req, res, next) => {
+  if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method) && req.headers.origin && req.headers.origin !== config.FRONTEND_URL && req.headers.origin !== `http://127.0.0.1:${config.PORT}`) return res.status(403).json({ message: 'Untrusted origin' });
+  next();
+});
+app.get('/api/v1/privacy', async (_req, res) => {
+  const modelAvailable = await localModelAvailable();
+  res.json({ permissions: permissions(), modelAvailable, model: config.OLLAMA_MODEL, storage: { database: config.DATABASE_PATH, googleToken: paths.token }, retentionDays: 30 });
+});
+app.put('/api/v1/privacy', async (req, res) => {
+  const input = z.object({ name: z.enum(integrationNames), enabled: z.boolean() }).parse(req.body);
+  setPermission(input.name, input.enabled);
+  if (input.name === 'whatsapp') { if (input.enabled) startWhatsApp(); else await stopWhatsApp(); }
+  res.json({ permissions: permissions() });
+});
+app.delete('/api/v1/privacy/history', (_req, res) => {
+  sqlite.exec('DELETE FROM triage_results; DELETE FROM review_previews; DELETE FROM agent_actions; DELETE FROM web_search_runs; DELETE FROM briefings;');
+  res.json({ deleted: true });
+});
+app.get('/api/v1/triage', (_req, res) => res.json({ results: listTriage() }));
+app.post('/api/v1/triage', async (_req, res) => res.json({ results: await triageInbox() }));
+app.post('/api/v1/reviews/interpret', async (req, res) => {
+  const { text } = z.object({ text: z.string().trim().min(1).max(12000) }).parse(req.body);
+  res.json(await understand(text, new Date().toISOString(), settingsRepository.get().timezone));
+});
+app.post('/api/v1/reviews/preview', async (req, res) => res.json(await previewReview(previewSchema.parse(req.body))));
+app.post('/api/v1/reviews/apply', async (req, res) => res.json(await applyReview(z.object({ id: z.string().uuid() }).parse(req.body).id)));
+purgeReviews();
 
 app.get('/api/v1/speech', async (_req, res) => res.json(await speechInfo()));
 app.post('/api/v1/speech', async (req, res) => {
@@ -48,7 +82,7 @@ async function syncTaskChange(reason: string) {
     return { status: plan ? 'synced' : 'not_configured' } as const;
   } catch (error) {
     // Do not lose a task just because a third-party Calendar request failed.
-    console.error(`[Calendar] Could not sync task change (${reason})`, error);
+    console.error('[Calendar] Local task replanning failed');
     return { status: 'failed', message: error instanceof Error ? error.message : 'Calendar sync failed' } as const;
   }
 }
@@ -165,8 +199,9 @@ if (fs.existsSync(frontendDist)) {
 }
 
 const errorHandler: ErrorRequestHandler = (error, _req, res, _next) => {
+  if (error instanceof ReviewError) return res.status(409).json({ code: 'REVIEW_REQUIRED', message: error.message });
   if (error instanceof ZodError) return res.status(400).json({ code: 'VALIDATION_ERROR', message: 'Invalid request', details: error.issues });
-  console.error(error);
-  res.status(500).json({ code: 'INTERNAL_ERROR', message: error instanceof Error ? error.message : 'Unexpected error' });
+  console.error('Request failed', { type: error instanceof Error ? error.name : 'Unknown' });
+  res.status(503).json({ code: 'REQUEST_FAILED', message: 'Request failed. Check local model availability, integration permissions, or refresh the preview.' });
 };
 app.use(errorHandler);

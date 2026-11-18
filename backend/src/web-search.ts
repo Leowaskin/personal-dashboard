@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { allowed } from './privacy.js';
 import { Parser } from 'xml2js';
 import { config } from './config.js';
 import { recordSearch } from './repository.js';
@@ -131,6 +132,7 @@ async function fallbackSearch(query: string, fresh: boolean) {
 function cacheKey(query: string, fresh: boolean) { return `${fresh ? 'fresh' : 'general'}:${query.toLowerCase()}`; }
 
 export async function searchWeb(prompt: string, source: 'dashboard' | 'whatsapp' | 'briefing'): Promise<SearchResponse> {
+  if (!allowed(source === 'briefing' ? 'news' : 'search')) return { status: 'unavailable', results: [] };
   const query = searchQueryFromPrompt(prompt);
   const fresh = isFreshQuery(prompt);
   const key = cacheKey(query, fresh);
